@@ -2,30 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include<iostream>
-#include <ctime> // Needed for the true randomization
-#include <cstdlib> 
-
-
+#define MASTER 0
 #define MAXSIZE 10
-
-int randInt(int a, int b)
-{
-	int randValue;
-	randValue = (rand() % (b - a + 1)) + a;
-	return randValue;
-}
-
 int main(int argc, char *argv[])
 {
 
-	int numprocs, procid, s1[4], s2[4], xRan;
-	int MASTER = 0;
-	int SECOND=1;
+	int numprocs, procid, data[] = { 1,2,3,4,5,6,7,8,9,10 }, sum = 0, sum1 = 0, s1[4], s2 = 0;
 
-	srand((int)time(NULL));
-
-	for (int i = 0;i < 4;i++) s1[i] = 0;
-	for (int i = 0;i < 4;i++) s2[i] = 0;
 	MPI_Status status;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -33,58 +16,44 @@ int main(int argc, char *argv[])
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &procid);
 	//printf("My rank is: %d", procid);
-	while (s2[MASTER]==0 || s2[SECOND]==0) {
-		if (procid == MASTER) {
-			
-			xRan = randInt(1, 100);
-			//printf("Procesul lider %d a generat: %d  \n", procid, xRan);
-			
-			s1[procid] = xRan;
-			
+	if (procid == MASTER) {
 
-			fflush(stdout);
-
-			MPI_Send(s1, 4, MPI_INT, SECOND, 1, MPI_COMM_WORLD);
-
-
-			MPI_Recv(s1, 4, MPI_INT, SECOND, 1, MPI_COMM_WORLD, &status);
+		//printf("Master starting");
+		for (int i = MAXSIZE / 2 + 1; i < MAXSIZE;i++)
+		{
+			s1[i - (MAXSIZE / 2 + 1)] = data[i];
 		}
-	
-	
-		else if (procid == SECOND) {
-			MPI_Recv(s1, 4, MPI_INT, MASTER, 1, MPI_COMM_WORLD, &status);
+		//for (int i = 0;i < 4;i++) { printf("suma1este: %d", s1[i]); } 
+		fflush(stdout);
+		MPI_Send(s1, 4, MPI_INT, 1, 1, MPI_COMM_WORLD);
 
-			
-			srand(100);
-			xRan = randInt(1, 100);
-			//printf("Procesul %d a generat: %d  \n", procid, xRan);
-			
-			s1[procid] = xRan;
-			fflush(stdout);
-
-			MPI_Send(s1, 4, MPI_INT, MASTER, 1, MPI_COMM_WORLD);
+		for (int i = 0;i <= MAXSIZE / 2;i++)
+		{
+			sum1 += data[i];
 		}
 
-		if (procid == MASTER) {
-			if (s1[MASTER] > s1[SECOND]) {
-				printf("Procesul %d este leaderul procesului %d\n", MASTER, SECOND);
-				printf("Leaderul a generat %d iar celalalt %d\n", s1[MASTER], s1[SECOND]);
-				s2[MASTER] = 1;
-				
-			}
-			else
-			{
-				printf("Procesul %d este leaderul procesului %d\n", SECOND, MASTER);
-				printf("Leaderul a generat %d iar celalalt %d\n", s1[SECOND],s1[MASTER]);
-				s2[SECOND] = 1;
-			}
-			fflush(stdout);
-			
 
-		}
+		MPI_Recv(&sum, 1, MPI_INT, 1, 1, MPI_COMM_WORLD, &status);
+
+
 	}
-	
+	else if (procid == 1) {
+		MPI_Recv(s1, 4, MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+		for (int i = MAXSIZE / 2 + 1;i < MAXSIZE;i++)
+		{
+			sum += s1[i - (MAXSIZE / 2 + 1)];
+			//printf("s1 este: %d", s1[i - (MAXSIZE / 2 + 1)]);
+		}
+		//printf("Suma1 este %d ", sum);
+
+
+		MPI_Send(&sum, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
+	}
+	if (procid == MASTER) {
+		printf("Suma este: %d", sum + sum1);
+	}
+
 	MPI_Finalize();
-	
-	
+
+
 }
